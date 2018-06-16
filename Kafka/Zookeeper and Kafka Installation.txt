@@ -1,0 +1,126 @@
+For Kafka, Zookeeper is required for providing configuration env.
+
+Install Zookeeper:
+
+Download zookeeper-3.4.10.tar.gz  from http://www-us.apache.org/dist/zookeeper/zookeeper-3.4.10/
+
+cd guruvanshchoudhary/Downloads/
+
+tar xvf zookeeper-3.4.10.tar.gz 
+sudo mv zookeeper-3.4.10 /usr/local/zookeeper
+
+mkdir /usr/local/zookeeper/data
+mkdir /usr/local/zookeeper/logs
+
+sudo chmod 777 /usr/local/zookeeper/logs
+sudo chmod 777 /usr/local/zookeeper/data
+
+create file java.env inside /usr/local/zookeeper/conf with data: 
+	ZOO_LOG4J_PROP="INFO,ROLLINGFILE"
+	ZOO_LOG_DIR="/usr/local/zookeeper/logs" 
+
+Also, inside conf directory: 
+	cp zoo_sample.cfg zoo.cfg
+	update zoo.cfg variables: 
+		dataDir=/usr/local/zookeeper/data 
+		clientPort=2181
+
+Command to start zookeeper
+/usr/local/zookeeper/bin/zkServer.sh start
+
+check status
+echo srvr | nc localhost 2181
+
+Command to stop zookeeper
+/usr/local/zookeeper/bin/zkServer.sh stop
+
+
+
+Once Zookeeper is working fine... and no error is found inside /usr/local/zookeeper/logs/Zookeeper.out . We can start with Kafka.
+Also, here we have not started and created zookeeper as a user in any group. Will add that part later....
+
+
+Install Kafka :
+https://kafka.apache.org/quickstart
+
+Download Kafka from https://www.apache.org/dyn/closer.cgi?path=/kafka/1.1.0/kafka_2.11-1.1.0.tgz
+
+tar -xzf kafka_2.11-1.1.0.tgz
+cd kafka_2.11-1.1.0
+
+
+bin/zookeeper-server-start.sh config/zookeeper.properties
+
+If issue come like ---- line 271: /usr/lib/jdk/bin/java: No such file or directory. THEN:
+	inside bin/zookeeper-server-start.sh write export JAVA_HOME = local java home
+
+	
+bin/kafka-server-start.sh config/server.properties
+
+If issue come like ---- line 271: /usr/lib/jdk/bin/java: No such file or directory. THEN:
+	inside bin/kafka-server-start.sh write export JAVA_HOME = local java home
+
+Command to create TOPIC with name test :
+bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic test
+
+LIST all topics in Kafka: 
+bin/kafka-topics.sh --list --zookeeper localhost:2181
+
+Send Some Message
+bin/kafka-console-producer.sh --broker-list localhost:9092 --topic test
+This is a message
+This is another message
+
+
+Start a consumer with topic test from beginning (i.e. All left data will be read)
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic test --from-beginning
+
+Consumer Group
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic test --consumer-property group.id=test-consumer-group 
+
+Verify Created Consumer Group
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group test-consumer-group
+
+Alter partitions in Topic (Increase is ok, decrease is not recommanded...)
+bin/kafka-topics.sh --alter --zookeeper localhost:2181 --topic test --partitions 2
+
+Verify for partitions increased:
+bin/kafka-topics.sh --describe --zookeeper localhost:2181 --topic test
+
+
+For testing Consumer Group, its required that there should be more than one consumer for a particular topic. 
+Count of Consumers for a given topic can be found using below command: 
+
+bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group test-consumer-group 
+
+Next, we need to start multiple consumers for a topic, it can be achieved using below cmd :
+
+bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic test --consumer-property group.id=test-consumer-group
+
+Again add more consumers with same cmd,
+Now when we check the count using above describe cmd, we can see multiple consumers registered with different Client Id.
+
+
+And when data is published at producer it will be randomly read by various consumers...
+
+
+ 
+Q. How many max partition can we have in Kafka 
+https://www.confluent.io/blog/how-to-choose-the-number-of-topicspartitions-in-a-kafka-cluster/
+
+** As a rule of thumb, if you care about latency, it’s probably a good idea to limit the number of partitions per broker to
+100 x b x r, where b is the number of brokers in a Kafka cluster and r is the replication factor.
+
+
+Hashing in Kafka at Partition  level based on Key: (Use full when we want to consume data in insertion order)
+**  When publishing a keyed message, Kafka deterministically maps the message to a partition based on the hash of the key.
+ This provides a guarantee that messages with the same key are always routed to the same partition.
+ This guarantee can be important for certain applications since messages within a partition are always delivered in order to the consumer. 
+** If the number of partitions changes, such a guarantee may no longer hold. 
+** To avoid this situation, a common practice is to over-partition a bit.
+
+
+
+
+
+
